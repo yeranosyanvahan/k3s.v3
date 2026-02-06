@@ -25,7 +25,6 @@ spec:
   valuesContent: |
     operatorNamespace: rook-ceph
 
-    # Enable the toolbox for troubleshooting
     toolbox:
       enabled: true
 
@@ -40,7 +39,6 @@ spec:
       storage:
         useAllNodes: true
         useAllDevices: true
-      # Essential for single-node labs
       mgr:
         modules:
           - name: pg_autoscaler
@@ -52,7 +50,7 @@ spec:
     cephBlockPools:
       - name: ceph-blockpool
         spec:
-          failureDomain: osd  # Changed from 'host' for single-node
+          failureDomain: osd
           replicated:
             size: 1
             requireSafeReplicaSize: false
@@ -66,7 +64,6 @@ spec:
           parameters:
             imageFormat: "2"
             imageFeatures: layering
-            # REQUIRED SECRETS TO FIX "SECRET IS EMPTY" ERROR
             csi.storage.k8s.io/provisioner-secret-name: rook-csi-rbd-provisioner
             csi.storage.k8s.io/provisioner-secret-namespace: rook-ceph
             csi.storage.k8s.io/node-stage-secret-name: rook-csi-rbd-node

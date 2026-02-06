@@ -8,3 +8,7 @@ spec:
   repo: https://charts.loft.sh
   targetNamespace: test-my-vcluster
   createNamespace: true
+  valuesContent: |
+    sync:
+      storageClasses:
+        enabled: true
