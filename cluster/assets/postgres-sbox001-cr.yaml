@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: asset-sbox-postgres
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres-sbox001-cluster
+  namespace: asset-sbox-postgres
+spec:
+  instances: 1
+  storage:
+    size: 100Gi
+  managed:
+    roles:
+    - name: postgres-sbox001-user
+      ensure: present
+      login: true
+      superuser: true
+      createdb: true
+      createrole: false
+      inherit: false
+      replication: false
+      bypassrls: false
+      passwordSecret:
+        name: postgres-sbox001-secret
+        namespace: asset-sbox-postgres
+---
+kind: Secret
+type: kubernetes.io/basic-auth
+apiVersion: v1
+metadata:
+  name: postgres-sbox001-secret
+  namespace: asset-sbox-postgres
+  labels:
+    cnpg.io/reload: "true"
+stringData:
+  username: postgres-sbox001-user
+  password: Vu40qaeqputnokA2l2rBY73bsZ0sMyGQ

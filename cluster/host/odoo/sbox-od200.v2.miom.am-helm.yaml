@@ -1,0 +1,36 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: host-od200.v2.miom.am-odoo
+  namespace: host-release-helm
+spec:
+  chart: oci://registry-1.docker.io/bitnamicharts/odoo
+  targetNamespace: host-odoo-sbox
+  set:
+    service.type: 'ClusterIP'
+  valuesContent: |-
+    podAnnotations:
+      co.elastic.logs/enabled: "true"
+      co.elastic.logs/processors.1.add_fields.target: ""
+      co.elastic.logs/processors.1.add_fields.fields.http.dst: "od200.v2.miom.am"
+    ingress:
+      enabled: true
+      ingressClassName: traefik
+      hostname: od200.v2.miom.am
+      path: /
+      annotations:
+        cert-manager.io/cluster-issuer: "cluster-issuer"
+      tls:
+        - hosts:
+            - od200.v2.miom.am
+          secretName: host-od200-v2.miom.am-odoo-tls
+    postgresql:
+      enabled: true
+      image:
+        repository: bitnamilegacy/postgresql
+
+    image:
+      repository: bitnamilegacy/odoo
+    global:
+      security:
+        allowInsecureImages: true

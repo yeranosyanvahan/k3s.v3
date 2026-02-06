@@ -1,0 +1,72 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: dev-sbox001-kafkatopic
+  namespace: asset-sbox-kafka
+  labels:
+    strimzi.io/cluster: kafka-sbox001-cluster
+spec:
+  partitions: 1
+  replicas: 1
+---
+apiVersion: logstash.k8s.elastic.co/v1alpha1
+kind: Logstash
+metadata:
+  name: dev-sbox001-logstash
+  namespace: asset-sbox-eck
+spec:
+  version: 9.2.3
+  count: 1
+  elasticsearchRefs:
+    - name: sbox001-eck
+      namespace: asset-sbox-eck
+      clusterName: sbox001
+  pipelines:
+    - pipeline.id: kafka-to-es
+      config.string: |
+        input {
+          kafka {
+            bootstrap_servers => "kafka-sbox001-cluster-kafka-bootstrap.asset-sbox-kafka:9092"
+            topics => ["dev-sbox001-kafkatopic"]
+            group_id => "logstash"
+            auto_offset_reset => "earliest"
+            codec => "json"
+          }
+          http {
+            host => "0.0.0.0"
+            port => 80
+            codec => "json"
+          }
+        }
+        output {
+          elasticsearch {
+            hosts => [ "${SBOX001_ES_HOSTS}" ]
+            user => "${SBOX001_ES_USER}"
+            password => "${SBOX001_ES_PASSWORD}"
+            ssl_certificate_authorities => "${SBOX001_ES_SSL_CERTIFICATE_AUTHORITY}"
+            index => "logstash-sbox001-asset"
+            data_stream => false
+            ilm_enabled => false
+            manage_template => false
+          }
+
+        }
+  podTemplate:
+    metadata:
+      labels:
+        app: logstash
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash-sbox001-svc
+  namespace: asset-sbox-eck
+spec:
+  ports:
+    - port: 80 
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: logstash
+  type: ClusterIP

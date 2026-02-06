@@ -1,0 +1,394 @@
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: kibana
+spec:
+  version: 9.2.0
+  count: 1
+  elasticsearchRef:
+    name: elasticsearch
+  config:
+    xpack.fleet.agents.elasticsearch.hosts: ["https://es.v2.miom.am:443"]
+    xpack.fleet.agents.fleet_server.hosts: [ "https://fleet.v2.miom.am:443"]  
+    xpack.fleet.packages:
+    - name: system
+      version: latest
+    - name: elastic_agent
+      version: latest
+    - name: fleet_server
+      version: latest
+    - name: kubernetes
+      version: latest
+    - name: apm
+      version: latest
+    xpack.fleet.agentPolicies:
+    - name: Fleet Server on ECK policy
+      id: eck-fleet-server
+      namespace: elastic
+      is_managed: true
+      monitoring_enabled:
+      - logs
+      - metrics
+      unenroll_timeout: 900
+      package_policies:
+      - name: fleet_server-1
+        id: fleet_server-1
+        package:
+          name: fleet_server
+    - name: Elastic Agent on ECK policy
+      id: eck-agent
+      namespace: elastic
+      is_managed: true
+      monitoring_enabled:
+      - logs
+      - metrics
+      unenroll_timeout: 900
+      package_policies:
+      - package:
+          name: system
+        name: system-1
+      - package:
+          name: kubernetes
+        name: kubernetes-1
+      
+---
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: elasticsearch
+spec:
+  version: 9.2.0
+  nodeSets:
+  - name: default-1
+    count: 1
+    config:
+      node.store.allow_mmap: false
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: ServersTransport
+metadata:
+  name: skipverify
+  namespace: default
+spec:
+  insecureSkipVerify: true
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: kibana-route
+  namespace: default
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`kb.v2.miom.am`)
+      kind: Rule
+      services:
+        - name: kibana-kb-http
+          port: 5601
+          scheme: https
+          passHostHeader: true
+          serversTransport: skipverify
+  tls:
+    secretName: kb-acme
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: elasticsearch-route
+  namespace: default
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`es.v2.miom.am`)
+      kind: Rule
+      services:
+        - name: elasticsearch-es-http
+          port: 9200
+          scheme: https
+          passHostHeader: true
+          serversTransport: skipverify
+  tls:
+    secretName: es-acme
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: fleet-route
+  namespace: default
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`fleet.v2.miom.am`)
+      kind: Rule
+      services:
+        - name: fleet-server-agent-http
+          port: 8220
+          scheme: https
+          passHostHeader: true
+          serversTransport: skipverify
+  tls:
+    secretName: fleet-server-acme
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kb-cert
+  namespace: default
+spec:
+  secretName: kb-acme
+  dnsNames:
+    - kb.v2.miom.am
+  issuerRef:
+    name: cluster-issuer
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: es-cert
+  namespace: default
+spec:
+  secretName: es-acme
+  dnsNames:
+    - es.v2.miom.am
+  issuerRef:
+    name: cluster-issuer
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: fleet-cert
+  namespace: default
+spec:
+  secretName: fleet-server-acme
+  dnsNames:
+    - fleet.v2.miom.am
+  issuerRef:
+    name: cluster-issuer
+    kind: ClusterIssuer
+---
+apiVersion: agent.k8s.elastic.co/v1alpha1
+kind: Agent
+metadata:
+  name: fleet-server
+spec:
+  version: 9.2.0
+  http:
+    tls:
+      certificate:
+        secretName: fleet-server-acme
+  kibanaRef:
+    name: kibana
+  elasticsearchRefs:
+  - name: elasticsearch
+  mode: fleet
+  fleetServerEnabled: true
+  policyID: eck-fleet-server
+  deployment:
+    replicas: 1
+    podTemplate:
+      spec:
+        containers:
+        - name: agent
+          env:
+          - name: FLEET_URL
+            value: https://fleet.v2.miom.am:443
+        serviceAccountName: fleet-server
+        automountServiceAccountToken: true
+        securityContext:
+          runAsUser: 0
+---
+apiVersion: agent.k8s.elastic.co/v1alpha1
+kind: Agent
+metadata: 
+  name: elastic-agent
+spec:
+  config:
+    fleet:
+      enabled: true
+    providers.kubernetes:
+      add_resource_metadata:
+        deployment: true
+  version: 9.2.0
+  kibanaRef:
+    name: kibana
+  fleetServerRef:
+    name: fleet-server
+  mode: fleet
+  policyID: eck-agent
+  daemonSet:
+    podTemplate:
+      spec:
+        volumes:
+        - name: fleet-ca
+          secret:
+            secretName: fleet-server-acme
+        containers:
+        - name: agent
+          env:
+          - name: FLEET_URL
+            value: https://fleet.v2.miom.am
+          volumeMounts:
+          - name: fleet-ca
+            mountPath: /mnt/extra 
+        serviceAccountName: elastic-agent
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        automountServiceAccountToken: true
+        securityContext:
+          runAsUser: 0
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fleet-server
+rules:
+- apiGroups: [""]
+  resources:
+  - pods
+  - namespaces
+  - nodes
+  verbs:
+  - get
+  - watch
+  - list
+- apiGroups: ["apps"]
+  resources:
+    - replicasets
+  verbs:
+    - get
+    - watch
+    - list
+- apiGroups: ["batch"]
+  resources:
+    - jobs
+  verbs:
+    - get
+    - watch
+    - list
+- apiGroups: ["coordination.k8s.io"]
+  resources:
+  - leases
+  verbs:
+  - get
+  - create
+  - update
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fleet-server
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fleet-server
+subjects:
+- kind: ServiceAccount
+  name: fleet-server
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: fleet-server
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: elastic-agent
+rules:
+- apiGroups: [""]
+  resources:
+  - pods
+  - nodes
+  - namespaces
+  - events
+  - services
+  - configmaps
+  - persistentvolumes
+  - persistentvolumeclaims
+  verbs:
+  - get
+  - watch
+  - list
+- apiGroups: ["coordination.k8s.io"]
+  resources:
+  - leases
+  verbs:
+  - get
+  - create
+  - update
+- nonResourceURLs:
+  - "/metrics"
+  verbs:
+  - get
+- apiGroups: ["extensions"]
+  resources:
+    - replicasets
+  verbs: 
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "apps"
+  resources:
+  - statefulsets
+  - deployments
+  - replicasets
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes/stats
+  verbs:
+  - get
+- nonResourceURLs:
+  - "/metrics"
+  verbs:
+  - get
+- apiGroups:
+  - "batch"
+  resources:
+  - jobs
+  - cronjobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - "storage.k8s.io"
+  resources:
+  - storageclasses
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: elastic-agent
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: elastic-agent
+subjects:
+- kind: ServiceAccount
+  name: elastic-agent
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: elastic-agent
+  apiGroup: rbac.authorization.k8s.io

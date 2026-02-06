@@ -1,0 +1,66 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: host-od002.v2.miom.am-odoo
+  namespace: host-release-helm
+spec:
+  chart: oci://registry-1.docker.io/bitnamicharts/odoo
+  targetNamespace: host-odoo-sbox
+  set:
+    service.type: 'ClusterIP'
+  valuesContent: |-
+    ingress:
+      enabled: true
+      ingressClassName: traefik
+      hostname: od002.v2.miom.am
+      path: /
+      annotations:
+        cert-manager.io/cluster-issuer: "cluster-issuer"
+      tls:
+        - hosts:
+            - od002.v2.miom.am
+          secretName: host-od002-v2.miom.am-odoo-tls
+    global:
+      security:
+        allowInsecureImages: true
+    image:
+      repository: odoo
+      tag: 19.0
+    postgresql:
+      enabled: false
+    extraEnvVars:
+      - name: HOST
+        value: "postgres-sbox001-cluster-rw.asset-sbox-postgres.svc.cluster.local"
+      - name: USER
+        value: "postgres-sbox001-user"
+      - name: PASSWORD
+        value: "Vu40qaeqputnokA2l2rBY73bsZ0sMyGQ"
+    extraVolumes:
+      - name: host-od002-conf
+        configMap:
+          name: host-od002.v2.miom.am-odoo-conf
+    extraVolumeMounts:
+      - name: host-od002-conf
+        mountPath: /etc/odoo/odoo.conf
+        subPath: odoo.conf
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: host-od002.v2.miom.am-odoo-conf
+  namespace: host-odoo-sbox
+data:
+  odoo.conf: |
+    [options]
+    proxy_mode = True
+    addons_path = /bitnami/odoo/extra-addons
+    data_dir = /bitnami/odoo
+    limit_memory_soft = 512000000
+    limit_memory_hard = 758000000
+    # 60 seconds (max CPU time per request)
+    # 120 seconds (max real time per request)
+    # 1 dedicated thread for scheduled actions
+    admin_passwd = Wydjoih9zKiVcxEm1BZ9YMZvExagjEWx
+    limit_time_cpu = 60
+    limit_time_real = 120
+    max_cron_threads = 1

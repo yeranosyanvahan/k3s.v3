@@ -1,0 +1,87 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: rook-ceph
+  namespace: infra-release-helm
+spec:
+  repo: https://charts.rook.io/release
+  chart: rook-ceph
+  targetNamespace: rook-ceph
+  createNamespace: true
+  valuesContent: |
+    crds:
+      enabled: true
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: rook-ceph-cluster
+  namespace: rook-ceph
+spec:
+  repo: https://charts.rook.io/release
+  chart: rook-ceph-cluster
+  targetNamespace: rook-ceph
+  createNamespace: true
+  valuesContent: |
+    operatorNamespace: rook-ceph
+
+    # --------------------
+    # Ceph Cluster
+    # --------------------
+    cephClusterSpec:
+      dataDirHostPath: /var/lib/rook
+      mon:
+        count: 1
+      storage:
+        useAllNodes: true
+        useAllDevices: true
+
+    # --------------------
+    # Block Storage (RBD)
+    # --------------------
+    cephBlockPools:
+      - name: ceph-blockpool
+        spec:
+          failureDomain: host
+          replicated:
+            size: 1
+        storageClass:
+          enabled: true
+          name: ceph-rbd
+          isDefault: true
+          reclaimPolicy: Delete
+          allowVolumeExpansion: true
+          volumeBindingMode: Immediate
+          parameters:
+            imageFormat: "2"
+            imageFeatures: layering
+
+    # --------------------
+    # File Storage (CephFS)
+    # --------------------
+    cephFileSystems:
+      - name: ceph-filesystem
+        spec:
+          metadataPool:
+            replicated:
+              size: 1
+          dataPools:
+            - name: data0
+              replicated:
+                size: 1
+          metadataServer:
+            activeCount: 1
+            activeStandby: true
+        storageClass:
+          enabled: true
+          name: cephfs
+          isDefault: false
+          reclaimPolicy: Delete
+          allowVolumeExpansion: true
+          volumeBindingMode: Immediate
+          parameters:
+            csi.storage.k8s.io/provisioner-secret-name: rook-csi-cephfs-provisioner
+            csi.storage.k8s.io/provisioner-secret-namespace: rook-ceph
+            csi.storage.k8s.io/node-stage-secret-name: rook-csi-cephfs-node
+            csi.storage.k8s.io/node-stage-secret-namespace: rook-ceph
+

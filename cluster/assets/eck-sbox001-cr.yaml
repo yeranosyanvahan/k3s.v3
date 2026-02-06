@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: asset-sbox-eck
+---
+kind: Secret
+apiVersion: v1
+metadata:
+  name: logstash-sbox001-roles-secret
+stringData:
+  roles.yml: |-
+    eck_logstash_user_role:
+      cluster: [ "monitor", "manage_ilm", "read_ilm", "manage_logstash_pipelines", "manage_index_templates", "cluster:admin/ingest/pipeline/get"]
+      indices:
+      - names: [ "logstash", "logstash-*", "metrics-*", "synthetics-*", "traces-*" ]
+        privileges: [ "manage", "write", "create_index", "read", "view_index_metadata" ]
+---
+apiVersion: elasticsearch.k8s.elastic.co/v1
+kind: Elasticsearch
+metadata:
+  name: eck-sbox001-es
+  namespace: asset-sbox-eck
+spec:
+  version: 9.2.3
+  auth:
+    roles:
+      - secretName: logstash-sbox001-roles-secret
+  nodeSets:
+  - name: eck-sbox001-nodeset
+    count: 1
+    config:
+      node.store.allow_mmap: false
+---
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: eck-sbox001-kb
+  namespace: asset-sbox-eck
+spec:
+  version: 9.2.3
+  count: 1
+  elasticsearchRef:
+    name: eck-sbox001-es
+  config:
+    xpack.fleet.agentPolicies:
+    - name: Fleet Server on ECK policy
+      id: eck-fleet-server
+      namespace: default
+      is_managed: true
+      unenroll_timeout: 900
+      package_policies:
+      - name: fleet_server-1
+        id: fleet_server-1
+        package:
+          name: fleet_server
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: ServersTransport
+metadata:
+  name: skipverify
+  namespace: asset-sbox-eck
+spec:
+  insecureSkipVerify: true
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: eck-sbox001-kb-ingressroute
+  namespace: asset-sbox-eck
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`kibana.v2.miom.am`)
+      kind: Rule
+      services:
+        - name: eck-sbox001-kb-kb-http
+          namespace: asset-sbox-eck
+          port: 5601
+          scheme: https
+          passHostHeader: true
+          serversTransport: skipverify 
+  tls:
+    secretName: tls-kibana.v2.miom.am
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: eck-sbox001-kb-tls
+  namespace: asset-sbox-eck
+spec:
+  secretName: tls-kibana.v2.miom.am
+  dnsNames:
+    - kibana.v2.miom.am
+  issuerRef:
+    name: cluster-issuer
+    kind: ClusterIssuer

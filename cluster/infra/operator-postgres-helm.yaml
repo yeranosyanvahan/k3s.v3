@@ -1,0 +1,17 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: operator-postgres-release
+  namespace: infra-release-helm
+spec:
+  repo: https://cloudnative-pg.github.io/charts
+  chart: cloudnative-pg
+  targetNamespace: infra-postgres-operator
+  createNamespace: true
+  version: 0.27.0
+  set:
+    image.pullPolicy: IfNotPresent
+    metrics.enabled: "true"
+    webhook.cert.certManager.enabled: "true"
+  valuesContent: |-
+    fullnameOverride: cnpg

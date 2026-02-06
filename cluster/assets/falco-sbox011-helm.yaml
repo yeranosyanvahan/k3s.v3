@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: asset-sbox-falco
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: falco-sbox011-release
+  namespace: asset-release-helm
+spec:
+  repo: https://falcosecurity.github.io/charts
+  chart: falco
+  targetNamespace: asset-sbox-falco
+  version: 7.0.2
+  set:
+    falco.json_output: "true"
+    falco.json_include_output_property: "true"
+    falco.file_output.enabled: "true"
+    falco.file_output.filename: "/var/log/falco/events.txt"
+    falco.programOutput.enabled: "false"
+    tty: "true"
+    collectors.kubernetes.enabled: "true"
+    mounts.volumes[0].name: falco-logs
+    mounts.volumes[0].hostPath.path: /var/log/falco
+    mounts.volumes[0].hostPath.type: DirectoryOrCreate
+    mounts.volumeMounts[0].name: falco-logs
+    mounts.volumeMounts[0].mountPath: /var/log/falco
+---
+apiVersion: beat.k8s.elastic.co/v1beta1
+kind: Beat
+metadata:
+  name: eck-sbox011-filebeat
+  namespace: asset-sbox-falco
+spec:
+  type: filebeat
+  version: 9.2.3
+  elasticsearchRef:
+    name: eck-sbox001-es
+    namespace: asset-sbox-eck
+  kibanaRef:
+    name: eck-sbox001-kb
+    namespace: asset-sbox-eck
+  config:
+    filebeat.inputs:
+    - type: filestream
+      id: falco-sbox011-filestream
+      enabled: true
+      paths:
+        - /var/log/falco/events.txt
+      fields:
+        type: "falco"
+      fields_under_root: true
+      encoding: utf-8
+      ignore_older: 12h
+      processors:
+      - decode_json_fields:
+          fields: ["message"]
+          target: "falco.event"
+          overwrite_keys: true
+          expand_keys: true
+          add_error_key: true
+  daemonSet:
+    podTemplate:
+      spec:
+        serviceAccountName: default
+        automountServiceAccountToken: false
+        terminationGracePeriodSeconds: 30
+        containers:
+        - name: filebeat
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: varlogfalco
+              mountPath: /var/log/falco
+        volumes:
+          - name: varlogfalco
+            hostPath:
+              path: /var/log/falco

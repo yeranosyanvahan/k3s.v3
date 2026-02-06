@@ -1,0 +1,16 @@
+#kubectl apply -f https://strimzi.io/install/latest?namespace=kafka-sbox000-asset -n kafka-sbox000-asset
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: operator-strimzi-release
+  namespace: infra-release-helm
+spec:
+  chart: strimzi-kafka-operator
+  repo: https://strimzi.io/charts/
+  targetNamespace: infra-strimzi-operator
+  createNamespace: true
+  version: 0.49.1
+  valuesContent: |
+    watchNamespaces:
+      - asset-sbox-kafka

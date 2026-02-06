@@ -1,0 +1,80 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    deployment:
+      additionalVolumes:
+        - name: traefik-logs
+          hostPath:
+            path: /var/log/traefik
+            type: DirectoryOrCreate
+
+    additionalVolumeMounts:
+      - name: traefik-logs
+        mountPath: /var/log/traefik
+
+    additionalArguments:
+      - "--log.filepath=/var/log/traefik/traefik.log"
+      - "--accesslog.filepath=/var/log/traefik/traefik-access.log"
+      - "--accesslog.format=json"
+      - "--accesslog.fields.headers.defaultmode=keep"
+      - "--accesslog.fields.names.RequestHost=keep"
+      - "--accesslog.fields.names.ClientHost=keep"
+    service:
+      spec:
+        externalTrafficPolicy: Local
+---
+apiVersion: beat.k8s.elastic.co/v1beta1
+kind: Beat
+metadata:
+  name: eck-sbox021-filebeat
+  namespace: asset-sbox-eck
+spec:
+  type: filebeat
+  version: 9.2.3
+  elasticsearchRef:
+    name: eck-sbox001-es
+    namespace: asset-sbox-eck
+  kibanaRef:
+    name: eck-sbox001-kb
+    namespace: asset-sbox-eck
+  config:
+    filebeat.inputs:
+    - type: filestream
+      id: traefik-sbox021-filestream
+      enabled: true
+      paths:
+        - /var/log/traefik/traefik-access.log
+      fields:
+        type: "traefik"
+      fields_under_root: true
+      encoding: utf-8
+      ignore_older: 12h
+      processors:
+      - decode_json_fields:
+          fields: ["message"]
+          target: "traefik.event"
+          overwrite_keys: true
+          expand_keys: true
+          add_error_key: true
+  daemonSet:
+    podTemplate:
+      spec:
+        serviceAccountName: default
+        automountServiceAccountToken: false
+        terminationGracePeriodSeconds: 30
+        containers:
+        - name: filebeat
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: varlogtraefik
+              mountPath: /var/log/traefik
+        volumes:
+          - name: varlogtraefik
+            hostPath:
+              path: /var/log/traefik
+

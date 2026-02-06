@@ -1,0 +1,22 @@
+apiVersion: agent.k8s.elastic.co/v1alpha1
+kind: Agent
+metadata:
+  name: eck-sbox001-fleet
+  namespace: asset-sbox-eck
+spec:
+  version: 9.2.3
+  kibanaRef:
+    name: eck-sbox001-kb
+    namespace: asset-sbox-eck
+  elasticsearchRefs:
+  - name: eck-sbox001-es
+    namespace: asset-sbox-eck
+  mode: fleet
+  fleetServerEnabled: true
+  policyID: eck-fleet-server
+  deployment:
+    replicas: 1
+    podTemplate:
+      spec:
+        securityContext:
+          runAsUser: 0

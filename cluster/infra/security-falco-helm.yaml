@@ -1,0 +1,24 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: security-falco-release
+  namespace: asset-release-helm
+spec:
+  repo: https://falcosecurity.github.io/charts
+  chart: falco
+  targetNamespace: infra-falco-security
+  createNamespace: true
+  version: 7.0.2
+  set:
+    falco.json_output: "true"
+    falco.json_include_output_property: "true"
+    falco.file_output.enabled: "true"
+    falco.file_output.filename: "/var/log/falco/events.txt"
+    falco.programOutput.enabled: "false"
+    tty: "true"
+    collectors.kubernetes.enabled: "true"
+    mounts.volumes[0].name: falco-logs
+    mounts.volumes[0].hostPath.path: /var/log/falco
+    mounts.volumes[0].hostPath.type: DirectoryOrCreate
+    mounts.volumeMounts[0].name: falco-logs
+    mounts.volumeMounts[0].mountPath: /var/log/falco

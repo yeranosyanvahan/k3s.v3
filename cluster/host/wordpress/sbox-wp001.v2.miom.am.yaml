@@ -1,0 +1,42 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: host-wp000.v2.miom.am-wordpress
+  namespace: host-release-helm
+spec:
+  repo: https://yeranosyanvahan.github.io/helmcharts
+  chart: mariadb-wordpress-chart
+  targetNamespace: host-wordpress-sbox
+  version: 0.8.2
+  valuesContent: |-
+  
+    externalDatabaseMariadb:
+      mariaDbRef:
+        name: mariadb-sbox001-asset
+        namespace: asset-sbox-mariadb
+
+    persistence: # mountPath: /var/www/html
+      accessModes:
+        - ReadWriteOnce
+      storageClass: local-path
+      size: 1Gi
+
+    ingress:
+      wwwPrefix: false 
+      hostname: wp000.v2.miom.am
+      annotations:
+        cert-manager.io/cluster-issuer: cluster-issuer
+        traefik.ingress.kubernetes.io/router.middlewares: infra-crowdsec-security-crowdsec-bouncer@kubernetescrd
+        
+    wordpress:
+      replicas: 1
+      phpIni: |-
+        file_uploads = On         ; default On
+        memory_limit = 128M       ; default 128M
+        upload_max_filesize = 1G  ; default 2M
+        post_max_size = 1G        ; default 8M
+        max_execution_time = 600  ; default 30
+
+      apache:
+        enconf: [remoteip]
+        disconf: [cloudflare]

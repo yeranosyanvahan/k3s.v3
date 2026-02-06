@@ -1,0 +1,45 @@
+PUT _ingest/pipeline/odoo
+{
+  "description": "Parse Odoo logs with process + conditional HTTP parsing",
+  "processors": [
+    {
+      "grok": {
+        "field": "message",
+        "patterns": [
+          "%{TIMESTAMP_ISO8601:timestamp} %{NUMBER:pid} %{WORD:log.level} %{DATA:odoo.database} %{DATA:process.name}: %{GREEDYDATA:log.message}"
+        ],
+        "ignore_failure": true
+      }
+    },
+    {
+      "grok": {
+        "if": "ctx.process.name != null && ctx.process.name.contains('werkzeug')",
+        "field": "log.message",
+        "patterns": [
+          """%{IP:http.srcip} - - \[%{DATA:request.time}\] "%{WORD:http.method} %{URIPATHPARAM:http.path} HTTP/%{NUMBER:http.version}" %{NUMBER:http.response_code} (?:%{NUMBER:http.response_size}|-) %{NUMBER:http.hits} %{NUMBER:http.request_time:float} %{NUMBER:http.total_time:float}"""
+        ],
+        "ignore_failure": true
+      }
+    },
+    {
+      "date": {
+        "field": "timestamp",
+        "formats": ["yyyy-MM-dd HH:mm:ss,SSS"],
+        "target_field": "@timestamp",
+        "ignore_failure": true
+      }
+    },
+    {
+      "drop": {
+        "if": "ctx.http != null && ctx.http.path == '/web/health' && ctx.http.srcip != null && (ctx.http.srcip == '127.0.0.1' || ctx.http.srcip.startsWith('192.168.') || ctx.http.srcip.startsWith('10.') || ctx.http.srcip.startsWith('172.16.'))"
+      }
+    },
+    {
+      "set": {
+        "field": "log.level",
+        "value": "error",
+        "if": "ctx.log == null || ctx.log.level == null"
+      }
+    }
+  ]
+}

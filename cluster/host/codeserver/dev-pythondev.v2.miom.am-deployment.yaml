@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dev-pythondev.v2.miom.am-codeserver
+  namespace: host-pythondev-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: code-server
+  template:
+    metadata:
+      labels:
+        app: code-server
+    spec:
+      serviceAccountName: dev-pythondev.v2.miom.am-sa 
+
+      volumes:
+        - name: home
+          persistentVolumeClaim:
+            claimName: dev-pythondev.v2.miom.am-codeserver-pvc
+        - name: bootstrap
+          configMap:
+            name: dev-pythondev.v2.miom.am-codeserver-bootstrap
+            defaultMode: 0444
+
+      containers:
+        - name: code-server
+          image: codercom/code-server:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+
+          env:
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dev-pythondev.v2.miom.am-codeserver-secret
+                  key: PASSWORD
+            - name: SHELL
+              value: /bin/bash
+
+          volumeMounts:
+            - name: home
+              mountPath: /home/coder
+            - name: bootstrap
+              mountPath: /opt/bootstrap.sh
+              subPath: bootstrap.sh
+
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/bash
+                  - -lc
+                  - "/bin/bash /opt/bootstrap.sh"
+
+          command: ["code-server"]
+          args:
+            - "--bind-addr"
+            - "0.0.0.0:8080"
+            - "/home/coder/project"

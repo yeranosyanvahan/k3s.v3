@@ -1,0 +1,49 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: registry-harbor-release
+  namespace: infra-release-helm
+spec:
+  repo: https://helm.goharbor.io
+  chart: harbor
+  targetNamespace: infra-harbor-registry
+  createNamespace: true
+  version: 1.16.0
+  set:
+    trivy.enabled: "true"
+  valuesContent: |-
+    harborAdminPassword: 3tobzMSghtoNwo1AgS9fdzRW
+    expose:
+      type: ingress
+      ingress:
+        hosts:
+          core: registry.v2.miom.am
+        annotations:
+          cert-manager.io/cluster-issuer: "cluster-issuer"
+    externalURL: https://registry.v2.miom.am
+    persistence:
+      enabled: true
+      resourcePolicy: "keep"
+      persistentVolumeClaim:
+        registry:
+          storageClass: local-path
+          accessMode: ReadWriteOnce
+          size: 5Gi
+        trivy:
+          storageClass: local-path
+          accessMode: ReadWriteOnce
+          size: 5Gi
+        jobservice:
+          jobLog:
+            storageClass: local-path
+            accessMode: ReadWriteOnce
+            size: 1Gi
+        database:
+          storageClass: local-path
+          accessMode: ReadWriteOnce
+          size: 1Gi
+        redis:
+          storageClass: local-path
+          accessMode: ReadWriteOnce
+          size: 1Gi
+

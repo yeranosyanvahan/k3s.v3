@@ -1,0 +1,33 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    deployment:
+      additionalVolumes:
+        - name: traefik-logs
+          hostPath:
+            path: /var/log/traefik
+            type: DirectoryOrCreate
+
+    additionalVolumeMounts:
+      - name: traefik-logs
+        mountPath: /var/log/traefik
+
+    additionalArguments:
+    #  - "--log.filepath=/var/log/traefik/traefik.log"
+    #  - "--accesslog.filepath=/var/log/traefik/traefik-access.log"   
+      - "--accesslog.format=json"
+      - "--accesslog.fields.headers.defaultmode=keep"
+      - "--accesslog.fields.names.RequestHost=keep"
+      - "--accesslog.fields.names.ClientHost=keep"
+    experimental:
+      plugins:
+        crowdsec-bouncer-traefik-plugin:
+          moduleName: "github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
+          version: "v1.4.7"
+    service:
+      spec:
+        externalTrafficPolicy: Local

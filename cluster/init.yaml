@@ -1,0 +1,29 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: cluster-issuer
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: letsencrypt@miom.am
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: traefik
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: infra-release-helm
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: asset-release-helm
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: host-release-helm

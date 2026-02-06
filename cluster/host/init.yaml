@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: host-pythondev-dev
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: host-odoo-sbox
+  annotations:
+    co.elastic.logs/enabled: "true"
+    co.elastic.logs/pipeline: "odoo"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: host-wordpress-sbox

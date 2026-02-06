@@ -1,0 +1,28 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: operator-mariadb-release
+  namespace: infra-release-helm
+spec:
+  repo: https://helm.mariadb.com/mariadb-operator
+  chart: mariadb-operator
+  targetNamespace: infra-mariadb-operator
+  createNamespace: true
+  version: 25.10.3
+  set:
+    metrics.enabled: "false"
+    webhook.cert.certManager.enabled: "true"
+  valuesContent: |-
+    fullnameOverride: infra-mariadb-operator
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: operator-mariadbcrd-release
+  namespace: infra-release-helm
+spec:
+  repo: https://helm.mariadb.com/mariadb-operator
+  version: 25.10.3
+  chart: mariadb-operator-crds
+  targetNamespace: infra-mariadb-operator
+  createNamespace: true

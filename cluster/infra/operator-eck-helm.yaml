@@ -1,0 +1,19 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: operator-eck-release
+  namespace: infra-release-helm
+spec:
+  repo: https://helm.elastic.co
+  chart: eck-operator
+  targetNamespace: infra-eck-operator
+  createNamespace: true
+  version: 3.2.0
+  valuesContent: |-
+    installCRDs: true
+    managedNamespaces: [] # manage all namespaces
+    createClusterScopedResources: true
+    webhook:
+      enabled: false
+    config:
+      validateStorageClass: false
