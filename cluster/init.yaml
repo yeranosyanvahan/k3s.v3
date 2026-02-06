@@ -21,6 +21,11 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
+  name: test-release-helm
+---
+apiVersion: v1
+kind: Namespace
+metadata:
   name: asset-release-helm
 ---
 apiVersion: v1

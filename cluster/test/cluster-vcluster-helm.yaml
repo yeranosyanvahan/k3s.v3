@@ -1,0 +1,10 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: my-vcluster
+  namespace: test-release-helm
+spec:
+  chart: vcluster
+  repo: https://charts.loft.sh
+  targetNamespace: test-my-vcluster
+  createNamespace: true

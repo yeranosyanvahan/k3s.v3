@@ -4,8 +4,8 @@ PODMASK=20
 MAXPODS=1600
 
 INSTALL_K3S_VERSION=v1.34.2+k3s1
-RANCHER_HOSTNAME='rancher.v2.miom.am'
-LETSENCRYPT_EMAIL='letsencrypt@v2.miom.am'
+RANCHER_HOSTNAME='rancher.v3.miom.am'
+LETSENCRYPT_EMAIL='letsencrypt@v3.miom.am'
 
 
 sudo apt-get install curl

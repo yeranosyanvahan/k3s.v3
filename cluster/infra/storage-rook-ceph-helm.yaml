@@ -16,7 +16,7 @@ apiVersion: helm.cattle.io/v1
 kind: HelmChart
 metadata:
   name: rook-ceph-cluster
-  namespace: rook-ceph
+  namespace: infra-release-helm
 spec:
   repo: https://charts.rook.io/release
   chart: rook-ceph-cluster
@@ -25,6 +25,10 @@ spec:
   valuesContent: |
     operatorNamespace: rook-ceph
 
+    # Enable the toolbox for troubleshooting
+    toolbox:
+      enabled: true
+
     # --------------------
     # Ceph Cluster
     # --------------------
@@ -32,9 +36,15 @@ spec:
       dataDirHostPath: /var/lib/rook
       mon:
         count: 1
+        allowMultiplePerNode: true
       storage:
         useAllNodes: true
         useAllDevices: true
+      # Essential for single-node labs
+      mgr:
+        modules:
+          - name: pg_autoscaler
+            enabled: true
 
     # --------------------
     # Block Storage (RBD)
@@ -42,9 +52,10 @@ spec:
     cephBlockPools:
       - name: ceph-blockpool
         spec:
-          failureDomain: host
+          failureDomain: osd  # Changed from 'host' for single-node
           replicated:
             size: 1
+            requireSafeReplicaSize: false
         storageClass:
           enabled: true
           name: ceph-rbd
@@ -55,6 +66,11 @@ spec:
           parameters:
             imageFormat: "2"
             imageFeatures: layering
+            # REQUIRED SECRETS TO FIX "SECRET IS EMPTY" ERROR
+            csi.storage.k8s.io/provisioner-secret-name: rook-csi-rbd-provisioner
+            csi.storage.k8s.io/provisioner-secret-namespace: rook-ceph
+            csi.storage.k8s.io/node-stage-secret-name: rook-csi-rbd-node
+            csi.storage.k8s.io/node-stage-secret-namespace: rook-ceph
 
     # --------------------
     # File Storage (CephFS)
@@ -84,4 +100,3 @@ spec:
             csi.storage.k8s.io/provisioner-secret-namespace: rook-ceph
             csi.storage.k8s.io/node-stage-secret-name: rook-csi-cephfs-node
             csi.storage.k8s.io/node-stage-secret-namespace: rook-ceph
-

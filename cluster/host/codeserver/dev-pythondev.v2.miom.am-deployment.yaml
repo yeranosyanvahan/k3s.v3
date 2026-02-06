@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dev-pythondev.v2.miom.am-codeserver
+  name: dev-pythondev.v3.miom.am-codeserver
   namespace: host-pythondev-dev
 spec:
   replicas: 1
@@ -13,15 +13,15 @@ spec:
       labels:
         app: code-server
     spec:
-      serviceAccountName: dev-pythondev.v2.miom.am-sa 
+      serviceAccountName: dev-pythondev.v3.miom.am-sa 
 
       volumes:
         - name: home
           persistentVolumeClaim:
-            claimName: dev-pythondev.v2.miom.am-codeserver-pvc
+            claimName: dev-pythondev.v3.miom.am-codeserver-pvc
         - name: bootstrap
           configMap:
-            name: dev-pythondev.v2.miom.am-codeserver-bootstrap
+            name: dev-pythondev.v3.miom.am-codeserver-bootstrap
             defaultMode: 0444
 
       containers:
@@ -35,7 +35,7 @@ spec:
             - name: PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: dev-pythondev.v2.miom.am-codeserver-secret
+                  name: dev-pythondev.v3.miom.am-codeserver-secret
                   key: PASSWORD
             - name: SHELL
               value: /bin/bash
